@@ -635,8 +635,11 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         # ==========================
         # --- HASTA AQUÍ ---
 
-        # ESTA LÍNEA YA EXISTE EN TU CÓDIGO:
         with open("reporte.html", "rb") as file:
-            st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
-        with open("reporte.html", "rb") as file:
-            st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
+            st.download_button(
+                label=f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", 
+                data=file, 
+                file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", 
+                mime="text/html",
+                key="btn_descarga_unico"
+            )
