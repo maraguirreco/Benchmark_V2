@@ -58,17 +58,6 @@ def parsear_json_llm(texto):
     except Exception:
         return []
 
-# 🛡️ FIX ALUCINACIONES: Función para verificar si una URL es funcional y responde HTTP
-def validar_url_real(url):
-    if not url or not url.startswith("http") or "google.com" in url:
-        return False
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        res = requests.head(url, headers=headers, timeout=4, allow_redirects=True)
-        return res.status_code < 400
-    except Exception:
-        return False
-
 # === 🕸️ BÚSQUEDA WEB BLINDADA CON FILTROS DE CALIDAD ===
 def buscar_urls_reales(query, max_results=12):
     urls_validas = []
@@ -191,7 +180,61 @@ def extraer_colores_de_imagen(img_path, num_colores=4):
             return hex_colors
     except Exception:
         return []
-
+# === 🧠 FUNCIÓN PARA CREAR TABLERO EN MIRO ===
+def exportar_a_miro(marca, sector, resultados):
+    miro_key = st.secrets.get("MIRO_API_KEY")
+    if not miro_key: 
+        return None
+    
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {miro_key}"
+    }
+    
+    # 1. Crear el Tablero
+    payload_board = {
+        "name": f"Benchmark Velove: {marca}",
+        "description": f"Análisis de {len(resultados)} marcas del sector {sector}"
+    }
+    
+    team_id = st.secrets.get("MIRO_TEAM_ID")
+    if team_id: 
+        payload_board["teamId"] = team_id
+        
+    res_board = requests.post("https://api.miro.com/v2/boards", json=payload_board, headers=headers)
+    if res_board.status_code not in [200, 201]: 
+        return None
+        
+    board_data = res_board.json()
+    board_id = board_data.get("id")
+    board_url = board_data.get("viewLink")
+    
+    # 2. Agregar Shapes (Cards) por cada competidor
+    x, y = 0, 0
+    for i, r in enumerate(resultados):
+        content = f"""<p><strong>{r.get('nombre', 'Marca')}</strong></p>
+        <p><em>{r.get('categoria', '')}</em></p>
+        <p><strong>Propuesta:</strong> {r.get('propuesta_valor', '')}</p>
+        <p><strong>Diferencial:</strong> {r.get('diferencial', '')}</p>"""
+        
+        shape_payload = {
+            "data": { "content": content, "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": COLOR_TEXTO },
+            "position": { "x": x, "y": y },
+            "geometry": { "width": 320, "height": 220 }
+        }
+        
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json=shape_payload, headers=headers)
+        
+        # Lógica de posiciones (Grid de 4 columnas)
+        x += 350
+        if (i + 1) % 4 == 0:
+            x = 0
+            y += 250
+            
+    return board_url
+# ==============================================
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     st.image(LOGO_URL, width=150)
@@ -242,10 +285,12 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         sector_corto = sector.split(",")[0].split("/")[0].strip()
         producto_corto = producto.split(",")[0].split(".")[0].strip()[:30]
         
+        # Búsquedas Web Optimizadas para encontrar "Autoridad" y "Prestigio"
         locales_web = buscar_urls_reales(f"mejores agencias empresas {sector_corto} {ciudad} {pais}", max_results=10)
         nacionales_web = buscar_urls_reales(f"top empresas líderes {sector_corto} {pais}", max_results=10)
         inter_web = buscar_urls_reales(f"top rated global companies agencies {sector_corto} {producto_corto}", max_results=10)
         
+        # 🎯 BÚSQUEDA DE INSPIRACIÓN HIPER-ESPECÍFICA (Cruzando Sector + Producto)
         insp_web = buscar_urls_reales(f"{sector_corto} {producto_corto} branding identity design (site:awwwards.com OR site:thedieline.com OR site:cosmos.so OR site:reallygoodemails.com OR site:brandarchive.xyz OR site:itsnicethat.com OR site:fastcompany.com)", max_results=8)
         
         fijos_lista = []
@@ -256,6 +301,8 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                     found = buscar_urls_reales(f"{item_clean} sitio web oficial", max_results=1)
                     if found:
                         fijos_lista.append(found[0])
+                    else:
+                        fijos_lista.append({"nombre": item_clean, "url": f"https://www.google.com/search?q={item_clean}"})
 
         todos_los_hallazgos = fijos_lista + locales_web + nacionales_web + inter_web + insp_web
         
@@ -284,9 +331,17 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
             AQUÍ ESTÁ LA BASE DE DATOS DE URLs REALES ENCONTRADAS EN WEB:
             {json.dumps(hallazgos_unicos)}
             
-            ⛔ REGLAS Y CRITERIOS DE SELECCIÓN DE ÉLITE:
-            1. COPIA ÚNICAMENTE URLs DEL JSON ANTERIOR. NO INVENTES NINGUNA URL.
-            2. Elige marcas reales que vendan {producto} dentro de {sector}.
+            ⛔ REGLAS Y CRITERIOS DE SELECCIÓN DE ÉLITE (APLICA LOS 4):
+            1. FILTRO DE CORE REAL: Elige ÚNICAMENTE marcas o agencias comerciales reales que vendan {producto} dentro de {sector}.
+            2. NO DICCIONARIOS: Elimina estrictamente sitios de definiciones, glosarios, diccionarios o agregadores.
+            3. AUTORIDAD Y PRESTIGIO (NUEVO): Selecciona ESTRICTAMENTE a los líderes y referentes del mercado. Prioriza empresas que, según tu conocimiento, tengan alto tráfico web, premios, gran reconocimiento de marca o excelentes valoraciones (ej. en Clutch, Trustpilot, Google). IGNORA negocios pequeños, fantasmas o de dudosa reputación.
+            4. INSPIRACIÓN: Selecciona referentes globales icónicos QUE PERTENEZCAN al mismo sector ({sector}) o resuelvan la misma necesidad.
+            
+            🎯 DESGLOSE REQUERIDO POR CATEGORÍAS:
+            - 8 a 10 Locales (con presencia o base en {ciudad})
+            - 8 a 10 Nacionales (con presencia en {pais})
+            - 8 a 10 Internacionales (líderes globales del sector)
+            - 4 a 6 Inspiración (referentes visuales y de branding afines al sector)
             
             Devuelve ÚNICAMENTE un arreglo JSON empezando por '[' y terminando por ']':
             [
@@ -296,7 +351,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                     "categoria": "Local / Nacional / Internacional / Inspiración",
                     "ubicacion": "Ciudad, País",
                     "colores_estimados": ["#HEX1", "#HEX2"],
-                    "justificacion": "Por qué es un competidor relevante",
+                    "justificacion": "Por qué es un competidor relevante (Menciona su prestigio, autoridad en el mercado, reseñas o calidad comprobada)",
                     "servicios": "Servicios principales",
                     "propuesta_valor": "Propuesta de valor",
                     "diferencial": "Factor diferencial",
@@ -321,23 +376,31 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                     if match_real:
                         comp["url"] = match_real["url"]
                         competidores.append(comp)
+                    elif url_ia and "google.com" not in url_ia:
+                        competidores.append(comp)
             except Exception:
                 pass
 
         if len(competidores) < 5:
-            status_box.warning("⚡ Rescatando competidores vía búsqueda en tiempo real...")
+            status_box.warning("⚡ Generando Benchmark Estratégico mediante Memoria Neuronal Corporativa...")
             prompt_rescue = f"""
             Actúa como Senior Brand Strategist.
-            Necesito un estudio de competencia para la marca '{marca}' en el sector '{sector}' ({producto}) en {ciudad}, {pais}.
+            Necesito un estudio de competencia de ÉLITE para la marca '{marca}' en el sector '{sector}' (Producto: {producto}) en {ciudad}, {pais}.
             
-            Devuelve ÚNICAMENTE un arreglo JSON con los nombres de 12 empresas o marcas REALES líderes del sector:
+            🎯 DESGLOSE OBLIGATORIO DE MARCAS REALES DE ALTA AUTORIDAD:
+            - 8 Locales / Nacionales ({ciudad}, {pais}) -> Selecciona a los LÍDERES del mercado con mejor reputación.
+            - 8 Internacionales -> Solo los gigantes de la industria.
+            - 5 Referentes globales de Branding / Inspiración alineados a {sector}
+            
+            Devuelve ÚNICAMENTE un arreglo JSON empezando por '[' y terminando por ']':
             [
                 {{
-                    "nombre": "Nombre Comercial Real de la empresa",
+                    "nombre": "Nombre Comercial Real",
+                    "url": "https://www.sitioweboficialreal.com",
                     "categoria": "Local / Nacional / Internacional / Inspiración",
                     "ubicacion": "Ciudad, País",
                     "colores_estimados": ["#1e293b", "#0f172a"],
-                    "justificacion": "Descripción del liderazgo",
+                    "justificacion": "Menciona su prestigio, autoridad de mercado o reconocimiento",
                     "servicios": "Servicios principales",
                     "propuesta_valor": "Propuesta de valor",
                     "diferencial": "Factor diferencial",
@@ -355,31 +418,17 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
             except Exception:
                 pass
 
-        # 🛡️ FIX ALUCINACIONES: Resolver URLs reales antes de llamar a Playwright
-        for comp in competidores:
-            url_actual = comp.get("url", "")
-            if not validar_url_real(url_actual):
-                nombre = comp.get("nombre", "")
-                busqueda = buscar_urls_reales(f"{nombre} sitio web oficial {sector_corto}", max_results=1)
-                if busqueda:
-                    comp["url"] = busqueda[0]["url"]
-                else:
-                    comp["url"] = ""
-
         total_marcas = len(competidores)
+        
         os.makedirs("assets", exist_ok=True)
         resultados_analisis = []
         
         status_box.info(f"📸 Fase 2/3: Capturando webs y analizando paletas de colores de {total_marcas} marcas reales...")
         
-        # 🛡️ FIX ALUCINACIONES: Playwright con User-Agent para evitar bloqueos
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = context.new_page()
+            page = browser.new_page()
+            page.set_viewport_size({"width": 1280, "height": 800})
             
             for index, comp in enumerate(competidores, 1):
                 progress_bar.progress(index / total_marcas * 0.7)
@@ -395,11 +444,10 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                 colores_finales = []
                 img_base64 = ""
                 
-                if url_comp and url_comp.startswith("http"):
+                if url_comp and "google.com" not in url_comp and url_comp.startswith("http"):
                     try:
-                        # Navegación mejor tolerante a tiempos de carga
-                        page.goto(url_comp, timeout=12000, wait_until="domcontentloaded")
-                        time.sleep(2)
+                        page.goto(url_comp, timeout=8000, wait_until="domcontentloaded")
+                        time.sleep(1.5)
                         
                         colores_css = extraer_colores_css(page)
                         page.screenshot(path=screenshot_path, full_page=False, type="jpeg", quality=60)
@@ -407,8 +455,8 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                         
                         colores_finales = list(dict.fromkeys(colores_css + colores_img))
                         img_base64 = comprimir_y_convertir_base64(screenshot_path)
-                    except Exception as e:
-                        print(f"No se pudo capturar {url_comp}: {e}")
+                    except Exception:
+                        pass
                 
                 if len(colores_finales) < 2:
                     colores_finales = colores_backup
@@ -468,6 +516,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         )
         insights_raw = res_insights.choices[0].message.content or ""
         
+        # Limpieza de markdown o texto innecesario para evitar el "We need to produce HTML"
         if "<h3>" in insights_raw:
             insights_html = insights_raw[insights_raw.find("<h3>"):]
             insights_html = insights_html.replace("```html", "").replace("```", "")
@@ -570,5 +619,24 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         </html>
         """
         with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
+        # === 🧠 DISPARADOR MIRO ===
+        if st.secrets.get("MIRO_API_KEY"):
+            with st.spinner("Creando tablero colaborativo en Miro..."):
+                try:
+                    miro_link = exportar_a_miro(marca, sector, resultados_analisis)
+                    if miro_link:
+                        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({miro_link})")
+                    else:
+                        st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
+                except Exception as e:
+                    st.warning(f"Error al conectar con Miro: {e}")
+        else:
+            st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros colaborativos en Miro automáticamente.")
+        # ==========================
+        # --- HASTA AQUÍ ---
+
+        # ESTA LÍNEA YA EXISTE EN TU CÓDIGO:
+        with open("reporte.html", "rb") as file:
+            st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
         with open("reporte.html", "rb") as file:
             st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
