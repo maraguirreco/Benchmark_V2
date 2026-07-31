@@ -526,64 +526,117 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         progress_bar.progress(1.0)
         status_box.success(f"🎉 ¡Benchmark Completo de {total_marcas} Marcas verificado y generado!")
         
+       # === 📐 GENERACIÓN DE TABLA TIPO MIRO ===
+        COLOR_HEADER = "#1B3720" # Verde oscuro para el encabezado
+        
         tabla_html = ""
         for r in resultados_analisis:
-            color_html = "".join([f'<div style="width:22px;height:22px;background:{c};border-radius:50%;display:inline-block;margin:2px;border:1px solid #ccc;" title="{c}"></div>' for c in r['colores']])
-            
-            logo_tag = f'<img src="{r["logo_url"]}" style="width:28px; height:28px; border-radius:4px; border:1px solid #ccc;" onerror="this.style.display=\'none\'">' if r.get("logo_url") else ''
-            img_tag = f'<div style="margin-top:6px;"><span style="font-size:10px; font-weight:bold; color:#666;">🖥️ Captura Web:</span><br><img src="{r["img_b64"]}" style="width:100%; max-width:240px; border-radius:6px; border:1px solid #ddd;"></div>' if r.get("img_b64") else '<div style="background:#f0e2d5; padding:10px; border-radius:6px; color:#666; font-size:10px; margin-top:6px;">Web no disponible</div>'
-            pauta_tag = f'<div style="margin-top:8px;"><span style="font-size:10px; font-weight:bold; color:{COLOR_BOTON};">📢 Pauta / Pieza Gráfica:</span><br><img src="{r["pauta_b64"]}" style="width:100%; max-width:240px; border-radius:6px; border:1px solid #ddd;"></div>' if r.get("pauta_b64") else ''
-            
+            color_swatches = "".join([
+                f'<div style="width:22px;height:22px;background:{c};border-radius:50%;display:inline-block;margin:3px;border:1px solid #ccc;" title="{c}"></div>'
+                for c in r["colores"]
+            ])
+            colores_hex_texto = ", ".join(r["colores"])
+
+            logo_tag = (
+                f'<img src="{r["logo_url"]}" style="max-width:140px; max-height:70px;'
+                ' border-radius:4px; margin-bottom:12px;"'
+                ' onerror="this.style.display=\'none\'">'
+                if r.get("logo_url")
+                else (
+                    '<div style="width:120px; height:60px; border:2px dashed #bbb;'
+                    ' display:flex; align-items:center; justify-content:center;'
+                    ' font-size:12px; color:#888; margin:0 auto'
+                    ' 12px;">Logo aquí</div>'
+                )
+            )
+
+            img_tag = (
+                f'<div style="margin-bottom:12px;"><strong style="font-size:11px;'
+                ' color:#555;">🖥️ Captura Web:</strong><br><img'
+                f' src="{r["img_b64"]}" style="width:100%; border-radius:6px;'
+                ' border:1px solid #ddd; margin-top:4px;"></div>'
+                if r.get("img_b64")
+                else (
+                    '<div style="background:#fcf9f5; padding:10px; border-radius:4px;'
+                    ' color:#666; font-size:10px; margin-bottom:12px; border:1px'
+                    ' dashed #ccc;">Captura web no disponible</div>'
+                )
+            )
+
+            pauta_tag = (
+                f'<div><strong style="font-size:11px; color:{COLOR_BOTON};">📢 Pauta /'
+                f' Pieza Gráfica:</strong><br><img src="{r["pauta_b64"]}"'
+                ' style="width:100%; border-radius:6px; border:1px solid #ddd;'
+                ' margin-top:4px;"></div>'
+                if r.get("pauta_b64")
+                else ""
+            )
+
             tabla_html += f"""
             <tr>
-                <td style="padding:14px; border-bottom:1px solid #d8c2b0; vertical-align:top;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <!-- COLUMNA 1: Competidores -->
+                <td style="padding:18px; border-bottom:1px solid #d8c2b0; border-right:1px solid #d8c2b0; vertical-align:top; width:28%;">
+                    <div style="text-align:center; background:#ffffff; padding:12px; border-radius:8px; border:1px solid #d8c2b0; margin-bottom:14px; box-shadow:0 2px 5px rgba(0,0,0,0.03);">
                         {logo_tag}
-                        <div>
-                            <strong style="font-size:14px; color:{COLOR_TEXTO};">{r.get("nombre", "Marca")}</strong><br>
-                            <span style="font-size:10px; font-weight:700; color:{COLOR_BOTON}; text-transform:uppercase;">{r.get("categoria", "Competidor")}</span>
-                        </div>
+                        <div><strong style="font-size:16px; color:{COLOR_HEADER};">{r.get("nombre", "Marca")}</strong></div>
+                        <span style="font-size:10px; font-weight:700; color:{COLOR_BOTON}; text-transform:uppercase;">[{r.get("categoria", "Competidor")}]</span>
                     </div>
-                    <p style="font-size:11px; margin:2px 0; color:#333;">📍 {r.get("ubicacion", "N/D")}</p>
-                    <a href="{r.get("url", "#")}" target="_blank" style="font-size:11px; color:{COLOR_BOTON}; font-weight:600;">🌐 Sitio Web Oficial</a>
-                    <p style="font-size:11px; color:#555; margin-top:6px; line-height:1.3;"><i>"{r.get("justificacion", "")}"</i></p>
+                    
+                    <p style="font-size:12px; margin:6px 0;"><strong>Ubicación:</strong> {r.get("ubicacion", "N/D")}</p>
+                    <p style="font-size:12px; margin:6px 0;"><strong>Web:</strong> <a href="{r.get("url", "#")}" target="_blank" style="color:{COLOR_BOTON}; font-weight:600;">{r.get("url", "Sitio Web")}</a></p>
+                    <p style="font-size:12px; margin:6px 0;"><strong>Servicios / Oferta Core:</strong> {r.get("servicios", "N/D")}</p>
+                    <p style="font-size:12px; margin:6px 0;"><strong>Propuesta de Valor y Factor Diferencial:</strong> {r.get("propuesta_valor", "N/D")} — <i>{r.get("diferencial", "N/D")}</i></p>
+                    <p style="font-size:12px; margin:6px 0;"><strong>Tono y Estilo de Comunicación:</strong> {r.get("comunicacion", "N/D")}</p>
+                    <p style="font-size:12px; margin:6px 0;"><strong>Paleta de Colores Estimada (HEX):</strong> {colores_hex_texto}</p>
                 </td>
-                <td style="padding:14px; border-bottom:1px solid #d8c2b0; font-size:12px; vertical-align:top; line-height:1.4;">
-                    <p style="margin:0 0 6px 0;"><strong>Servicios:</strong> {r.get("servicios", "N/D")}</p>
-                    <p style="margin:0 0 6px 0;"><strong>Propuesta:</strong> {r.get("propuesta_valor", "N/D")}</p>
-                    <p style="margin:0;"><strong>Diferencial:</strong> {r.get("diferencial", "N/D")}</p>
-                </td>
-                <td style="padding:14px; border-bottom:1px solid #d8c2b0; vertical-align:top; text-align:center;">
-                    <div style="margin-bottom:6px;">{color_html}</div>
+                
+                <!-- COLUMNA 2: Identidad Visual -->
+                <td style="padding:18px; border-bottom:1px solid #d8c2b0; border-right:1px solid #d8c2b0; vertical-align:top; width:32%; text-align:center;">
                     {img_tag}
                     {pauta_tag}
                 </td>
-                <td style="padding:14px; border-bottom:1px solid #d8c2b0; font-size:12px; vertical-align:top; line-height:1.4;">
-                    {r.get("comunicacion", "N/D")}
+                
+                <!-- COLUMNA 3: Colores -->
+                <td style="padding:18px; border-bottom:1px solid #d8c2b0; border-right:1px solid #d8c2b0; vertical-align:top; width:15%; text-align:center;">
+                    <div style="display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:4px; margin-top:10px;">
+                        {color_swatches}
+                    </div>
+                    <div style="font-size:11px; color:#555; margin-top:12px; font-weight:600; word-break:break-all;">
+                        {colores_hex_texto}
+                    </div>
+                </td>
+                
+                <!-- COLUMNA 4: Tono y Estilo de Comunicación -->
+                <td style="padding:18px; border-bottom:1px solid #d8c2b0; vertical-align:top; width:25%; font-size:12px; line-height:1.5;">
+                    <p style="margin:0 0 8px 0; color:{COLOR_HEADER}; font-weight:700; font-size:13px;">Estilo de Comunicación:</p>
+                    <p style="margin:0 0 14px 0; color:#333;">{r.get("comunicacion", "N/D")}</p>
+                    <hr style="border:0; border-top:1px dashed #d8c2b0; margin:12px 0;">
+                    <p style="margin:0 0 4px 0; font-size:12px; color:{COLOR_HEADER}; font-weight:700;">Justificación Estratégica:</p>
+                    <p style="margin:0; font-size:11px; color:#666; font-style:italic;">"{r.get("justificacion", "")}"</p>
                 </td>
             </tr>
             """
-        
+
         html_final = f"""
         <!DOCTYPE html>
         <html lang="es">
         <head>
             <meta charset="UTF-8">
             <title>Benchmark Velove: {marca}</title>
-            <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
-            <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
-            <link href="[https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap](https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap)" rel="stylesheet">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
             <style>
                 body {{ font-family: 'Work Sans', sans-serif; padding: 40px; background-color: {COLOR_FONDO}; color: {COLOR_TEXTO}; line-height: 1.5; }}
-                .container {{ max-width: 1400px; margin: 0 auto; }}
-                .header {{ background-color: {COLOR_TEXTO}; color: {COLOR_FONDO}; padding: 30px; border-radius: 12px; margin-bottom: 30px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }}
-                .header-info h1 {{ margin: 0 0 6px 0; font-size: 26px; font-weight: 700; color: {COLOR_FONDO}; }}
-                .header-info p {{ margin: 0; opacity: 0.85; font-size: 13px; color: {COLOR_FONDO}; }}
+                .container {{ max-width: 1450px; margin: 0 auto; }}
+                .header {{ background-color: {COLOR_HEADER}; color: #ffffff; padding: 30px; border-radius: 12px; margin-bottom: 30px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }}
+                .header-info h1 {{ margin: 0 0 6px 0; font-size: 26px; font-weight: 700; color: #ffffff; }}
+                .header-info p {{ margin: 0; opacity: 0.9; font-size: 13px; color: #ffffff; }}
                 .logo-img {{ height: 50px; object-fit: contain; }}
                 table {{ width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 35px; }}
-                th {{ background-color: {COLOR_TEXTO}; color: {COLOR_FONDO}; padding: 16px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+                th {{ background-color: {COLOR_HEADER}; color: #ffffff; padding: 16px; text-align: center; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-right: 1px solid rgba(255,255,255,0.1); }}
                 .insights-card {{ background: #ffffff; padding: 35px; border-radius: 12px; border-left: 6px solid {COLOR_BOTON}; box-shadow: 0 4px 10px rgba(0,0,0,0.05); line-height: 1.6; }}
-                .insights-card h3 {{ color: {COLOR_TEXTO}; margin-top: 20px; font-size: 18px; }}
+                .insights-card h3 {{ color: {COLOR_HEADER}; margin-top: 20px; font-size: 18px; }}
             </style>
         </head>
         <body>
@@ -599,10 +652,10 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                 <table>
                     <thead>
                         <tr>
-                            <th width="25%">Marca & Ubicación</th>
-                            <th width="30%">Análisis Estratégico</th>
-                            <th width="25%">Identidad Visual (Web & Pauta)</th>
-                            <th width="20%">Tono & Comunicación</th>
+                            <th width="28%">Competidores</th>
+                            <th width="32%">Identidad Visual</th>
+                            <th width="15%">Colores</th>
+                            <th width="25%">Tono y Estilo de Comunicación</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -610,7 +663,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
                     </tbody>
                 </table>
                 
-                <h2 style="font-size: 22px; color: {COLOR_TEXTO}; margin-bottom: 15px;">🧠 Dirección de Arte & Conclusiones Estratégicas</h2>
+                <h2 style="font-size: 22px; color: {COLOR_HEADER}; margin-bottom: 15px;">🧠 Dirección de Arte & Conclusiones Estratégicas</h2>
                 <div class="insights-card">
                     {insights_html}
                 </div>
