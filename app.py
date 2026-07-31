@@ -272,7 +272,7 @@ with st.container():
 
     with col4:
         competidores_fijos = st.text_input("🎯 Competidores locales conocidos (Opcional - separados por coma):", placeholder="Ej. Obility, Demandbase")
-
+st.write("Miro Key detectada:", "SÍ" if st.secrets.get("MIRO_API_KEY") else "NO")
 if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
     if not marca or not sector or not pais or not ciudad or not producto:
         st.error("Por favor completa los campos: Marca, Sector, País, Ciudad y Producto.")
