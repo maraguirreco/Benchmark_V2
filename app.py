@@ -212,28 +212,85 @@ def exportar_a_miro(marca, sector, resultados):
     board_id = board_data.get("id")
     board_url = board_data.get("viewLink")
     
-    # 2. Agregar Shapes (Cards) por cada competidor
-    x, y = 0, 0
-    for i, r in enumerate(resultados):
-        content = f"""<p><strong>{r.get('nombre', 'Marca')}</strong></p>
-        <p><em>{r.get('categoria', '')}</em></p>
-        <p><strong>Propuesta:</strong> {r.get('propuesta_valor', '')}</p>
-        <p><strong>Diferencial:</strong> {r.get('diferencial', '')}</p>"""
-        
+    # --- GEOMETRÍA DE LA TABLA ESTILO REFERENTE ---
+    col_widths = [450, 400, 250, 400]
+    # Calculando el centro X de cada columna para que queden pegadas
+    col_x_centers = [225, 650, 975, 1300]
+    headers_text = ["Competidores", "Identidad Visual", "Colores", "Tono y Estilo de Comunicación"]
+    row_height = 550
+    y_start = 0
+
+    # 2. Crear Fila de Encabezados Superiores
+    for i, h_text in enumerate(headers_text):
         shape_payload = {
-            "data": { "content": content, "shape": "rectangle" },
-            "style": { "fillColor": "#ffffff", "borderColor": COLOR_TEXTO },
-            "position": { "x": x, "y": y },
-            "geometry": { "width": 320, "height": 220 }
+            "data": { "content": f"<p><strong>{h_text}</strong></p>", "shape": "rectangle" },
+            "style": { "fillColor": COLOR_HEADER, "color": "#ffffff", "borderColor": COLOR_HEADER, "textAlign": "center", "textAlignVertical": "middle" },
+            "position": { "x": col_x_centers[i], "y": y_start },
+            "geometry": { "width": col_widths[i], "height": 60 }
         }
-        
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json=shape_payload, headers=headers)
         
-        # Lógica de posiciones (Grid de 4 columnas)
-        x += 350
-        if (i + 1) % 4 == 0:
-            x = 0
-            y += 250
+    # 3. Crear Filas (cada competidor)
+    for i, r in enumerate(resultados):
+        # Calculamos el centro de la fila actual en el eje Y
+        y_row = y_start + 30 + (i * row_height) + (row_height / 2)
+        
+        colores_hex = ", ".join(r.get('colores', []))
+        
+        # --- COLUMNA 1: Textos del competidor ---
+        # Se agregan saltos de línea (br) para empujar el texto hacia abajo y dejar espacio para el recuadro del logo
+        content_c1 = f"""<br><br><br><br><br><br><br><br><br>
+        <p><strong>Ubicación:</strong> {r.get('ubicacion', 'N/D')}</p>
+        <p><strong>Web:</strong> {r.get('url', 'N/D')}</p>
+        <p><strong>Servicios / Oferta Core:</strong> {r.get('servicios', 'N/D')}</p>
+        <p><strong>Propuesta de Valor y Factor Diferencial:</strong> {r.get('propuesta_valor', 'N/D')} — {r.get('diferencial', 'N/D')}</p>
+        <p><strong>Tono y Estilo de Comunicación:</strong> {r.get('comunicacion', 'N/D')}</p>
+        <p><strong>Paleta de Colores Estimada (HEX):</strong> {colores_hex}</p>
+        """
+        
+        # Base de la Columna 1
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+            "data": { "content": content_c1, "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "left", "textAlignVertical": "top" },
+            "position": { "x": col_x_centers[0], "y": y_row },
+            "geometry": { "width": col_widths[0], "height": row_height }
+        }, headers=headers)
+        
+        # Recuadro de "Logo aquí" encima de la Columna 1
+        logo_y = y_row - (row_height / 2) + 120
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+            "data": { "content": f"<p>Logo aquí</p><p><strong>{r.get('nombre', 'Marca')}</strong></p>", "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": "#000000", "textAlign": "center", "textAlignVertical": "middle" },
+            "position": { "x": col_x_centers[0], "y": logo_y },
+            "geometry": { "width": 280, "height": 160 }
+        }, headers=headers)
+        
+        # --- COLUMNA 2: Identidad Visual (Vacía para que suban las capturas luego) ---
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+            "data": { "content": "", "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0" },
+            "position": { "x": col_x_centers[1], "y": y_row },
+            "geometry": { "width": col_widths[1], "height": row_height }
+        }, headers=headers)
+        
+        # --- COLUMNA 3: Colores ---
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+            "data": { "content": f"<p>{colores_hex}</p>", "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "center", "textAlignVertical": "middle" },
+            "position": { "x": col_x_centers[2], "y": y_row },
+            "geometry": { "width": col_widths[2], "height": row_height }
+        }, headers=headers)
+        
+        # --- COLUMNA 4: Tono y Estilo ---
+        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+            "data": { "content": f"<p>{r.get('comunicacion', '')}</p>", "shape": "rectangle" },
+            "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "left", "textAlignVertical": "top" },
+            "position": { "x": col_x_centers[3], "y": y_row },
+            "geometry": { "width": col_widths[3], "height": row_height }
+        }, headers=headers)
+        
+        # Pausa preventiva de seguridad para evitar superar el límite de peticiones de Miro
+        time.sleep(0.2)
             
     return board_url
 # ==============================================
