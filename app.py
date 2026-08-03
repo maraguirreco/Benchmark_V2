@@ -16,10 +16,11 @@ from PIL import Image
 from openai import OpenAI
 from duckduckgo_search import DDGS
 
-# === 🎨 CONFIGURACIÓN DE IDENTIDAD VELOVE ===
+# === 🎨 CONFIGURACIÓN DE IDENTIDAD VELOVE E INTERFAZ MIRO ===
 LOGO_URL = "https://www.dropbox.com/scl/fi/gftit3er4w0ty3y31r0oy/logo-velove-2026.svg?rlkey=lmmcyddkzhv1qxegy6bgnjvj9&st=2n701c15&raw=1"
 COLOR_FONDO = "#e4d2c2"
 COLOR_TEXTO = "#001c19"
+COLOR_HEADER = "#1B3720" # Verde Oscuro para el Encabezado de la tabla (Miro)
 COLOR_BOTON = "#ff1d4e"
 COLOR_BOTON_HOVER = "#e01742"
 # ============================================
@@ -180,61 +181,7 @@ def extraer_colores_de_imagen(img_path, num_colores=4):
             return hex_colors
     except Exception:
         return []
-# === 🧠 FUNCIÓN PARA CREAR TABLERO EN MIRO ===
-def exportar_a_miro(marca, sector, resultados):
-    miro_key = st.secrets.get("MIRO_API_KEY")
-    if not miro_key: 
-        return None
-    
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {miro_key}"
-    }
-    
-    # 1. Crear el Tablero
-    payload_board = {
-        "name": f"Benchmark Velove: {marca}",
-        "description": f"Análisis de {len(resultados)} marcas del sector {sector}"
-    }
-    
-    team_id = st.secrets.get("MIRO_TEAM_ID")
-    if team_id: 
-        payload_board["teamId"] = team_id
-        
-    res_board = requests.post("https://api.miro.com/v2/boards", json=payload_board, headers=headers)
-    if res_board.status_code not in [200, 201]: 
-        return None
-        
-    board_data = res_board.json()
-    board_id = board_data.get("id")
-    board_url = board_data.get("viewLink")
-    
-    # 2. Agregar Shapes (Cards) por cada competidor
-    x, y = 0, 0
-    for i, r in enumerate(resultados):
-        content = f"""<p><strong>{r.get('nombre', 'Marca')}</strong></p>
-        <p><em>{r.get('categoria', '')}</em></p>
-        <p><strong>Propuesta:</strong> {r.get('propuesta_valor', '')}</p>
-        <p><strong>Diferencial:</strong> {r.get('diferencial', '')}</p>"""
-        
-        shape_payload = {
-            "data": { "content": content, "shape": "rectangle" },
-            "style": { "fillColor": "#ffffff", "borderColor": COLOR_TEXTO },
-            "position": { "x": x, "y": y },
-            "geometry": { "width": 320, "height": 220 }
-        }
-        
-        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json=shape_payload, headers=headers)
-        
-        # Lógica de posiciones (Grid de 4 columnas)
-        x += 350
-        if (i + 1) % 4 == 0:
-            x = 0
-            y += 250
-            
-    return board_url
-# ==============================================
+
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     st.image(LOGO_URL, width=150)
@@ -516,7 +463,6 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         )
         insights_raw = res_insights.choices[0].message.content or ""
         
-        # Limpieza de markdown o texto innecesario para evitar el "We need to produce HTML"
         if "<h3>" in insights_raw:
             insights_html = insights_raw[insights_raw.find("<h3>"):]
             insights_html = insights_html.replace("```html", "").replace("```", "")
@@ -526,9 +472,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         progress_bar.progress(1.0)
         status_box.success(f"🎉 ¡Benchmark Completo de {total_marcas} Marcas verificado y generado!")
         
-# === 📐 GENERACIÓN DE TABLA TIPO MIRO ===
-        COLOR_HEADER = "#1B3720" # Verde oscuro para el encabezado
-        
+        # === 📐 GENERACIÓN DE TABLA FIEL A LA ESTRUCTURA MIRO ===
         tabla_html = ""
         for r in resultados_analisis:
             color_swatches = "".join([
@@ -574,7 +518,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
 
             tabla_html += f"""
             <tr>
-                <!-- COLUMNA 1: Competidores -->
+                <!-- COLUMNA 1: Competidores (Fiel a la tarjeta de Miro) -->
                 <td style="padding:18px; border-bottom:1px solid #d8c2b0; border-right:1px solid #d8c2b0; vertical-align:top; width:28%;">
                     <div style="text-align:center; background:#ffffff; padding:12px; border-radius:8px; border:1px solid #d8c2b0; margin-bottom:14px; box-shadow:0 2px 5px rgba(0,0,0,0.03);">
                         {logo_tag}
@@ -623,9 +567,9 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         <head>
             <meta charset="UTF-8">
             <title>Benchmark Velove: {marca}</title>
-            <link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+            <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
+            <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+            <link href="[https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap](https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap)" rel="stylesheet">
             <style>
                 body {{ font-family: 'Work Sans', sans-serif; padding: 40px; background-color: {COLOR_FONDO}; color: {COLOR_TEXTO}; line-height: 1.5; }}
                 .container {{ max-width: 1450px; margin: 0 auto; }}
@@ -672,28 +616,5 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         </html>
         """
         with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
-        
-        # === 🧠 DISPARADOR MIRO ===
-        if st.secrets.get("MIRO_API_KEY"):
-            with st.spinner("Creando tablero colaborativo en Miro..."):
-                try:
-                    miro_link = exportar_a_miro(marca, sector, resultados_analisis)
-                    if miro_link:
-                        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({miro_link})")
-                    else:
-                        st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
-                except Exception as e:
-                    st.warning(f"Error al conectar con Miro: {e}")
-        else:
-            st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros colaborativos en Miro automáticamente.")
-        # ==========================
-        # --- HASTA AQUÍ ---
-
         with open("reporte.html", "rb") as file:
-            st.download_button(
-                label=f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", 
-                data=file, 
-                file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", 
-                mime="text/html",
-                key="btn_descarga_unico"
-            )
+            st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
