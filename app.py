@@ -671,22 +671,43 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         </body>
         </html>
         """
-        with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
+       with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
         
         # === 🧠 DISPARADOR MIRO ===
+        miro_link_generado = None
         if st.secrets.get("MIRO_API_KEY"):
             with st.spinner("Creando tablero colaborativo en Miro..."):
                 try:
-                    miro_link = exportar_a_miro(marca, sector, resultados_analisis)
-                    if miro_link:
-                        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({miro_link})")
-                    else:
-                        st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
+                    miro_link_generado = exportar_a_miro(marca, sector, resultados_analisis)
                 except Exception as e:
                     st.warning(f"Error al conectar con Miro: {e}")
-        else:
-            st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros colaborativos en Miro automáticamente.")
-        # ==========================
+        
+        # 💾 GUARDAMOS LOS DATOS EN LA MEMORIA PARA QUE NO SE BORREN AL DESCARGAR
+        st.session_state["benchmark_completado"] = True
+        st.session_state["miro_link"] = miro_link_generado
+        st.session_state["html_final"] = html_final
+        st.session_state["total_marcas_guardado"] = total_marcas
+        st.session_state["marca_guardada"] = marca
 
-        with open("reporte.html", "rb") as file:
-            st.download_button(f"📥 Descargar Reporte Velove ({total_marcas} Marcas)", data=file, file_name=f"Benchmark_Velove_{marca.replace(' ', '_')}.html", mime="text/html")
+# === 🟢 MOSTRAR RESULTADOS FUERA DEL BOTÓN DE EJECUCIÓN ===
+# Al estar aquí afuera, sobreviven cuando la página se recarga por la descarga
+if st.session_state.get("benchmark_completado"):
+    st.markdown("---")
+    
+    # 1. Mostrar Enlace de Miro
+    link_miro = st.session_state.get("miro_link")
+    if link_miro:
+        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({link_miro})")
+    else:
+        if not st.secrets.get("MIRO_API_KEY"):
+            st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros colaborativos en Miro automáticamente.")
+        else:
+            st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
+    
+    # 2. Mostrar Botón de Descarga
+    st.download_button(
+        label=f"📥 Descargar Reporte Velove ({st.session_state['total_marcas_guardado']} Marcas)", 
+        data=st.session_state["html_final"], 
+        file_name=f"Benchmark_Velove_{st.session_state['marca_guardada'].replace(' ', '_')}.html", 
+        mime="text/html"
+    )
