@@ -232,13 +232,10 @@ def exportar_a_miro(marca, sector, resultados):
         
     # 3. Crear Filas (cada competidor)
     for i, r in enumerate(resultados):
-        # Calculamos el centro de la fila actual en el eje Y
         y_row = y_start + 30 + (i * row_height) + (row_height / 2)
-        
         colores_hex = ", ".join(r.get('colores', []))
         
         # --- COLUMNA 1: Textos del competidor ---
-        # Se agregan saltos de línea (br) para empujar el texto hacia abajo y dejar espacio para el recuadro del logo
         content_c1 = f"""<br><br><br><br><br><br><br><br><br>
         <p><strong>Ubicación:</strong> {r.get('ubicacion', 'N/D')}</p>
         <p><strong>Web:</strong> {r.get('url', 'N/D')}</p>
@@ -248,7 +245,6 @@ def exportar_a_miro(marca, sector, resultados):
         <p><strong>Paleta de Colores Estimada (HEX):</strong> {colores_hex}</p>
         """
         
-        # Base de la Columna 1
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
             "data": { "content": content_c1, "shape": "rectangle" },
             "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "left", "textAlignVertical": "top" },
@@ -256,30 +252,71 @@ def exportar_a_miro(marca, sector, resultados):
             "geometry": { "width": col_widths[0], "height": row_height }
         }, headers=headers)
         
-        # Recuadro de "Logo aquí" encima de la Columna 1
+        # LOGO REAL EN MIRO (Imagen en alta calidad)
         logo_y = y_row - (row_height / 2) + 120
-        requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
-            "data": { "content": f"<p>Logo aquí</p><p><strong>{r.get('nombre', 'Marca')}</strong></p>", "shape": "rectangle" },
-            "style": { "fillColor": "#ffffff", "borderColor": "#000000", "textAlign": "center", "textAlignVertical": "middle" },
-            "position": { "x": col_x_centers[0], "y": logo_y },
-            "geometry": { "width": 280, "height": 160 }
-        }, headers=headers)
-        
-        # --- COLUMNA 2: Identidad Visual (Vacía para que suban las capturas luego) ---
+        if r.get('logo_url') and r['logo_url'].startswith('http'):
+            requests.post(f"https://api.miro.com/v2/boards/{board_id}/images", json={
+                "data": { "url": r['logo_url'] },
+                "position": { "x": col_x_centers[0], "y": logo_y },
+                "geometry": { "width": 140 }
+            }, headers=headers)
+        else:
+            requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+                "data": { "content": f"<p>Logo no disponible</p><p><strong>{r.get('nombre', 'Marca')}</strong></p>", "shape": "rectangle" },
+                "style": { "fillColor": "#ffffff", "borderColor": "#000000", "textAlign": "center", "textAlignVertical": "middle" },
+                "position": { "x": col_x_centers[0], "y": logo_y },
+                "geometry": { "width": 280, "height": 160 }
+            }, headers=headers)
+            
+        # --- COLUMNA 2: Identidad Visual ---
+        # Base de la columna
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
             "data": { "content": "", "shape": "rectangle" },
             "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0" },
             "position": { "x": col_x_centers[1], "y": y_row },
             "geometry": { "width": col_widths[1], "height": row_height }
         }, headers=headers)
+
+        # Usar WebCard nativo de Miro para generar la captura de la página
+        if r.get('url') and r['url'].startswith('http'):
+            requests.post(f"https://api.miro.com/v2/boards/{board_id}/webcards", json={
+                "data": { "url": r['url'] },
+                "position": { "x": col_x_centers[1], "y": y_row }
+            }, headers=headers)
         
-        # --- COLUMNA 3: Colores ---
+        # --- COLUMNA 3: Colores (Círculos) ---
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
-            "data": { "content": f"<p>{colores_hex}</p>", "shape": "rectangle" },
+            "data": { "content": "", "shape": "rectangle" },
             "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "center", "textAlignVertical": "middle" },
             "position": { "x": col_x_centers[2], "y": y_row },
             "geometry": { "width": col_widths[2], "height": row_height }
         }, headers=headers)
+        
+        # Lógica para dibujar los círculos con los colores reales
+        colores_lista = r.get('colores', [])
+        num_colors = len(colores_lista)
+        if num_colors > 0:
+            circle_size = 70
+            spacing = 20
+            total_width = (num_colors * circle_size) + ((num_colors - 1) * spacing)
+            start_x = col_x_centers[2] - (total_width / 2) + (circle_size / 2)
+            
+            for c_idx, color_hex in enumerate(colores_lista):
+                cx = start_x + (c_idx * (circle_size + spacing))
+                requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+                    "data": { "content": "", "shape": "circle" },
+                    "style": { "fillColor": color_hex, "borderColor": "#e2e2e2" },
+                    "position": { "x": cx, "y": y_row - 40 },
+                    "geometry": { "width": circle_size, "height": circle_size }
+                }, headers=headers)
+                
+            # Escribir los códigos HEX debajo de los círculos
+            requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
+                "data": { "content": f"<p>{colores_hex}</p>", "shape": "rectangle" },
+                "style": { "fillColor": "transparent", "borderColor": "transparent", "textAlign": "center" },
+                "position": { "x": col_x_centers[2], "y": y_row + 50 },
+                "geometry": { "width": col_widths[2] - 20, "height": 40 }
+            }, headers=headers)
         
         # --- COLUMNA 4: Tono y Estilo ---
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
@@ -289,8 +326,8 @@ def exportar_a_miro(marca, sector, resultados):
             "geometry": { "width": col_widths[3], "height": row_height }
         }, headers=headers)
         
-        # Pausa preventiva de seguridad para evitar superar el límite de peticiones de Miro
-        time.sleep(0.2)
+        # Pausa preventiva para no saturar el límite de peticiones (Rate Limit) de la API de Miro
+        time.sleep(0.3)
             
     return board_url
 # ==============================================
