@@ -526,7 +526,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         progress_bar.progress(1.0)
         status_box.success(f"🎉 ¡Benchmark Completo de {total_marcas} Marcas verificado y generado!")
         
-       # === 📐 GENERACIÓN DE TABLA TIPO MIRO ===
+# === 📐 GENERACIÓN DE TABLA TIPO MIRO ===
         COLOR_HEADER = "#1B3720" # Verde oscuro para el encabezado
         
         tabla_html = ""
@@ -672,6 +672,7 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         </html>
         """
         with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
+        
         # === 🧠 DISPARADOR MIRO ===
         if st.secrets.get("MIRO_API_KEY"):
             with st.spinner("Creando tablero colaborativo en Miro..."):
