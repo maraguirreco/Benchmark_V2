@@ -673,41 +673,40 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         """
        with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
         
-        # === 🧠 DISPARADOR MIRO ===
-        miro_link_generado = None
+        # === 🧠 DISPARADOR MIRO Y GUARDADO EN MEMORIA ===
+        miro_link = None
         if st.secrets.get("MIRO_API_KEY"):
             with st.spinner("Creando tablero colaborativo en Miro..."):
                 try:
-                    miro_link_generado = exportar_a_miro(marca, sector, resultados_analisis)
+                    miro_link = exportar_a_miro(marca, sector, resultados_analisis)
                 except Exception as e:
                     st.warning(f"Error al conectar con Miro: {e}")
         
-        # 💾 GUARDAMOS LOS DATOS EN LA MEMORIA PARA QUE NO SE BORREN AL DESCARGAR
-        st.session_state["benchmark_completado"] = True
-        st.session_state["miro_link"] = miro_link_generado
+        # 💾 Guardar todo en memoria para que sobreviva a la recarga
+        st.session_state["benchmark_listo"] = True
         st.session_state["html_final"] = html_final
-        st.session_state["total_marcas_guardado"] = total_marcas
-        st.session_state["marca_guardada"] = marca
+        st.session_state["miro_link"] = miro_link
+        st.session_state["total_marcas"] = total_marcas
+        st.session_state["marca"] = marca
 
-# === 🟢 MOSTRAR RESULTADOS FUERA DEL BOTÓN DE EJECUCIÓN ===
-# Al estar aquí afuera, sobreviven cuando la página se recarga por la descarga
-if st.session_state.get("benchmark_completado"):
+# === 🟢 MOSTRAR BOTONES AFUERA DEL BUCLE PRINCIPAL ===
+# ESTA PARTE DEBE IR SIN ESPACIOS A LA IZQUIERDA (pegada al borde)
+if st.session_state.get("benchmark_listo"):
     st.markdown("---")
     
-    # 1. Mostrar Enlace de Miro
-    link_miro = st.session_state.get("miro_link")
-    if link_miro:
-        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({link_miro})")
+    # 1. Mostrar el link de Miro
+    link_guardado = st.session_state.get("miro_link")
+    if link_guardado:
+        st.success(f"🎨 ¡Tablero de Miro creado con éxito! [Hacer click aquí para abrir el Tablero en Miro]({link_guardado})")
+    elif not st.secrets.get("MIRO_API_KEY"):
+        st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros en Miro automáticamente.")
     else:
-        if not st.secrets.get("MIRO_API_KEY"):
-            st.info("💡 Tip: Configura 'MIRO_API_KEY' en tus secrets de Streamlit para generar tableros colaborativos en Miro automáticamente.")
-        else:
-            st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
-    
-    # 2. Mostrar Botón de Descarga
+        st.warning("Hubo un problema de conexión al crear el tablero en Miro. Verifica los permisos de tu API Key.")
+        
+    # 2. Mostrar el botón de descarga
     st.download_button(
-        label=f"📥 Descargar Reporte Velove ({st.session_state['total_marcas_guardado']} Marcas)", 
+        label=f"📥 Descargar Reporte Velove ({st.session_state['total_marcas']} Marcas)", 
         data=st.session_state["html_final"], 
-        file_name=f"Benchmark_Velove_{st.session_state['marca_guardada'].replace(' ', '_')}.html", 
+        file_name=f"Benchmark_Velove_{st.session_state['marca'].replace(' ', '_')}.html", 
         mime="text/html"
     )
