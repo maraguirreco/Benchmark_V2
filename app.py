@@ -194,6 +194,11 @@ def exportar_a_miro(marca, sector, resultados):
         "Authorization": f"Bearer {miro_key}"
     }
     
+    # Header específico para enviar imágenes subidas desde archivos
+    headers_multipart = {
+        "Authorization": f"Bearer {miro_key}"
+    }
+    
     # 1. Crear el Tablero
     payload_board = {
         "name": f"Benchmark Velove: {marca}",
@@ -242,7 +247,6 @@ def exportar_a_miro(marca, sector, resultados):
         <p><strong>Servicios / Oferta Core:</strong> {r.get('servicios', 'N/D')}</p>
         <p><strong>Propuesta de Valor y Factor Diferencial:</strong> {r.get('propuesta_valor', 'N/D')} — {r.get('diferencial', 'N/D')}</p>
         <p><strong>Tono y Estilo de Comunicación:</strong> {r.get('comunicacion', 'N/D')}</p>
-        <p><strong>Paleta de Colores Estimada (HEX):</strong> {colores_hex}</p>
         """
         
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
@@ -268,7 +272,7 @@ def exportar_a_miro(marca, sector, resultados):
                 "geometry": { "width": 280, "height": 160 }
             }, headers=headers)
             
-        # --- COLUMNA 2: Identidad Visual ---
+        # --- COLUMNA 2: Identidad Visual (Capturas de Pantalla Reales) ---
         # Base de la columna
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
             "data": { "content": "", "shape": "rectangle" },
@@ -277,14 +281,43 @@ def exportar_a_miro(marca, sector, resultados):
             "geometry": { "width": col_widths[1], "height": row_height }
         }, headers=headers)
 
-        # Usar WebCard nativo de Miro para generar la captura de la página
-        if r.get('url') and r['url'].startswith('http'):
-            requests.post(f"https://api.miro.com/v2/boards/{board_id}/webcards", json={
-                "data": { "url": r['url'] },
-                "position": { "x": col_x_centers[1], "y": y_row }
-            }, headers=headers)
+        # 📸 Subir Captura de Pantalla Web
+        import os
+        nombre_limpio = re.sub(r'\W+', '', r.get("nombre", f"Marca_{i+1}")).lower()
+        screenshot_path = f"assets/{nombre_limpio}.jpg"
         
-        # --- COLUMNA 3: Colores (Círculos) ---
+        if os.path.exists(screenshot_path):
+            try:
+                with open(screenshot_path, 'rb') as f:
+                    file_data = f.read()
+                    requests.post(f"https://api.miro.com/v2/boards/{board_id}/images", headers=headers_multipart, files={
+                        'resource': (f"{nombre_limpio}.jpg", file_data, 'image/jpeg')
+                    }, data={
+                        'data': json.dumps({
+                            "position": { "x": col_x_centers[1], "y": y_row - 70 },
+                            "geometry": { "width": 360 }
+                        })
+                    })
+            except Exception:
+                pass
+
+        # 📢 Subir Imagen de Pauta Publicitaria (Decodificando Base64)
+        if r.get('pauta_b64'):
+            try:
+                b64_data = r['pauta_b64'].split(',')[1] if ',' in r['pauta_b64'] else r['pauta_b64']
+                pauta_bytes = base64.b64decode(b64_data)
+                requests.post(f"https://api.miro.com/v2/boards/{board_id}/images", headers=headers_multipart, files={
+                    'resource': ('pauta.jpg', pauta_bytes, 'image/jpeg')
+                }, data={
+                    'data': json.dumps({
+                        "position": { "x": col_x_centers[1], "y": y_row + 150 },
+                        "geometry": { "width": 360 }
+                    })
+                })
+            except Exception:
+                pass
+        
+        # --- COLUMNA 3: Colores (Círculos Modulados) ---
         requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
             "data": { "content": "", "shape": "rectangle" },
             "style": { "fillColor": "#ffffff", "borderColor": "#d8c2b0", "textAlign": "center", "textAlignVertical": "middle" },
@@ -292,12 +325,13 @@ def exportar_a_miro(marca, sector, resultados):
             "geometry": { "width": col_widths[2], "height": row_height }
         }, headers=headers)
         
-        # Lógica para dibujar los círculos con los colores reales
+        # Lógica dinámica para modular y centrar círculos
         colores_lista = r.get('colores', [])
         num_colors = len(colores_lista)
         if num_colors > 0:
-            circle_size = 70
-            spacing = 20
+            # Tamaño más pequeño para que no se desborde si son muchos colores
+            circle_size = 40 if num_colors >= 4 else 55
+            spacing = 15
             total_width = (num_colors * circle_size) + ((num_colors - 1) * spacing)
             start_x = col_x_centers[2] - (total_width / 2) + (circle_size / 2)
             
@@ -306,11 +340,11 @@ def exportar_a_miro(marca, sector, resultados):
                 requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
                     "data": { "content": "", "shape": "circle" },
                     "style": { "fillColor": color_hex, "borderColor": "#e2e2e2" },
-                    "position": { "x": cx, "y": y_row - 40 },
+                    "position": { "x": cx, "y": y_row - 20 },
                     "geometry": { "width": circle_size, "height": circle_size }
                 }, headers=headers)
                 
-            # Escribir los códigos HEX debajo de los círculos
+            # Escribir los códigos HEX debajo
             requests.post(f"https://api.miro.com/v2/boards/{board_id}/shapes", json={
                 "data": { "content": f"<p>{colores_hex}</p>", "shape": "rectangle" },
                 "style": { "fillColor": "transparent", "borderColor": "transparent", "textAlign": "center" },
@@ -326,8 +360,8 @@ def exportar_a_miro(marca, sector, resultados):
             "geometry": { "width": col_widths[3], "height": row_height }
         }, headers=headers)
         
-        # Pausa preventiva para no saturar el límite de peticiones (Rate Limit) de la API de Miro
-        time.sleep(0.3)
+        # Pausa preventiva para no saturar la API de Miro
+        time.sleep(0.4)
             
     return board_url
 # ==============================================
