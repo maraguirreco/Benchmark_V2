@@ -673,22 +673,22 @@ if st.button("🔥 Ejecutar Benchmark Estratégico", type="primary"):
         """
        with open("reporte.html", "w", encoding="utf-8") as f: f.write(html_final)
         
-        # === 🧠 DISPARADOR MIRO Y GUARDADO EN MEMORIA ===
-        miro_link = None
-        if st.secrets.get("MIRO_API_KEY"):
-            with st.spinner("Creando tablero colaborativo en Miro..."):
-                try:
-                    miro_link = exportar_a_miro(marca, sector, resultados_analisis)
-                except Exception as e:
-                    st.warning(f"Error al conectar con Miro: {e}")
+       # === 🧠 DISPARADOR MIRO Y GUARDADO EN MEMORIA ===
+       miro_link = None
+       if st.secrets.get("MIRO_API_KEY"):
+           with st.spinner("Creando tablero colaborativo en Miro..."):
+               try:
+                   miro_link = exportar_a_miro(marca, sector, resultados_analisis)
+               except Exception as e:
+                   st.warning(f"Error al conectar con Miro: {e}")
         
-        # 💾 Guardar todo en memoria para que sobreviva a la recarga
-        st.session_state["benchmark_listo"] = True
-        st.session_state["html_final"] = html_final
-        st.session_state["miro_link"] = miro_link
-        st.session_state["total_marcas"] = total_marcas
-        st.session_state["marca"] = marca
-
+       # 💾 Guardar todo en memoria para que sobreviva a la recarga
+       st.session_state["benchmark_listo"] = True
+       st.session_state["html_final"] = html_final
+       st.session_state["miro_link"] = miro_link
+       st.session_state["total_marcas"] = total_marcas
+       st.session_state["marca"] = marca
+       
 # === 🟢 MOSTRAR BOTONES AFUERA DEL BUCLE PRINCIPAL ===
 # ESTA PARTE DEBE IR SIN ESPACIOS A LA IZQUIERDA (pegada al borde)
 if st.session_state.get("benchmark_listo"):
